@@ -1,62 +1,131 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+# Laravel JWT Authentication Setup
 
-## About Laravel
+This guide walks through the steps for implementing **JWT (JSON Web Token)** authentication in a Laravel project using the `php-open-source-saver/jwt-auth` package.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+---
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## 🔧 Installation Steps
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+### 1. Install Laravel Project (if not already done)
 
-## Learning Laravel
+```bash
+composer create-project laravel/laravel my-api
+cd my-api
+```
+`php artisan install:api`
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+### 2. Install JWT Auth Package
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+```bash
+composer require php-open-source-saver/jwt-auth
+```
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### 3. Publish JWT Config
 
-## Laravel Sponsors
+```bash
+php artisan vendor:publish --provider="PHPOpenSourceSaver\JWTAuth\Providers\LaravelServiceProvider"
+```
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+This will publish the `config/jwt.php` file.
 
-### Premium Partners
+### 4. Generate JWT Secret
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development/)**
-- **[Active Logic](https://activelogic.com)**
+```bash
+php artisan jwt:secret
+```
 
-## Contributing
+This will set the `JWT_SECRET` in your `.env` file.
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+---
 
-## Code of Conduct
+## ⚙️ Configuration
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### 5. Update `config/auth.php`
 
-## Security Vulnerabilities
+**Set the default guard to `api`:**
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```php
+'defaults' => [
+    'guard' => env('AUTH_GUARD', 'api'),
+    'passwords' => env('AUTH_PASSWORD_BROKER', 'users'),
+],
+```
 
-## License
+**Add the `api` guard using `jwt` driver:**
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
-# lara_apis_jwt
+```php
+'guards' => [
+    'web' => [
+        'driver' => 'session',
+        'provider' => 'users',
+    ],
+    'api' => [
+        'driver' => 'jwt',
+        'provider' => 'users',
+    ],
+],
+```
+
+---
+
+## 👤 Update the `User` Model
+
+Open `app/Models/User.php` and implement the JWT contract:
+
+```php
+use PHPOpenSourceSaver\JWTAuth\Contracts\JWTSubject;
+
+class User extends Authenticatable implements JWTSubject
+{
+    // Return the identifier to be stored in the JWT
+    public function getJWTIdentifier()
+    {
+        return $this->getKey();
+    }
+
+    // Add any custom claims to the JWT
+    public function getJWTCustomClaims()
+    {
+        return [];
+    }
+}
+```
+
+---
+
+## ✅ Routes Example (Optional)
+
+You may define routes in `routes/api.php`:
+
+```php
+use App\Http\Controllers\AuthController;
+
+Route::post('login', [AuthController::class, 'login']);
+Route::middleware('auth:api')->get('user', function () {
+    return auth()->user();
+});
+```
+
+---
+
+## 🛡️ Best Practices
+
+- Store the `JWT_SECRET` securely in environment variables.
+- Use HTTPS in production to protect JWTs in transit.
+- Always validate and sanitize user input.
+- Set token TTL (`ttl`) and refresh TTL (`refresh_ttl`) in `config/jwt.php` as per your app's security policy.
+- Use middleware to protect routes: `auth:api`.
+
+---
+
+## 📚 Resources
+
+- Package Docs: [php-open-source-saver/jwt-auth](https://github.com/php-open-source-saver/jwt-auth)
+- Laravel Auth Docs: https://laravel.com/docs/authentication
+
+---
+
+## 🧑‍💻 Author
+
+Developed by: **Md. Tarequr Rahman Sabbir**
